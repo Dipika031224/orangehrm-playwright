@@ -11,6 +11,9 @@ export class EmployeePage {
     readonly successMessage: Locator;
     readonly employeeNameHeading: Locator;
     readonly employeeIdValue: Locator;
+    readonly employeeListMenu: Locator;
+    readonly searchButton: Locator;
+    readonly jobTab: Locator;
 
     constructor(page: Page) {
         this.page = page;
@@ -23,6 +26,9 @@ export class EmployeePage {
         this.successMessage = page.getByText('Successfully Saved', { exact: false });
         this.employeeNameHeading = page.locator('.orangehrm-edit-employee-name');
         this.employeeIdValue = page.locator('.oxd-input-group').filter({ hasText: 'Employee Id' }).locator('input');
+        this.employeeListMenu = page.getByText('Employee List', { exact: true });
+        this.searchButton = page.getByRole('button', { name: 'Search' });
+        this.jobTab = page.getByText('Job', { exact: true });
     }
 
     async openAddEmployee() {
@@ -36,10 +42,24 @@ export class EmployeePage {
         lastName: string,
         profilePicturePath: string
     ) {
-        await this.firstNameInput.fill(firstName);
-        await this.lastNameInput.fill(lastName);
-        await this.profilePictureInput.setInputFiles(profilePicturePath);
-        await this.saveButton.click();
+        for (let attempt = 0; attempt < 5; attempt++) {
+            await this.firstNameInput.fill(firstName);
+            await this.lastNameInput.fill(lastName);
+            await this.profilePictureInput.setInputFiles(profilePicturePath);
+            const employeeId = await this.employeeIdValue.inputValue();
+            await this.saveButton.click();
+
+            try {
+                await expect(this.page).toHaveURL(/pim\/viewPersonalDetails/, { timeout: 5000 });
+                return employeeId;
+            } catch {
+                const addEmployeeUrl = new URL('/web/index.php/pim/addEmployee', this.page.url()).toString();
+                await this.page.goto(addEmployeeUrl);
+                await expect(this.firstNameInput).toBeVisible();
+            }
+        }
+
+        throw new Error('Could not create employee because every generated Employee ID already exists.');
     }
 
     async expectEmployeeDetails(firstName: string, lastName: string) {
@@ -47,5 +67,70 @@ export class EmployeePage {
         await expect(this.page.getByText(`${firstName} ${lastName}`, { exact: true })).toBeVisible();
         await expect(this.employeeIdValue).toBeVisible();
         await expect(this.employeeIdValue).not.toHaveValue('');
+    }
+
+    async getGeneratedEmployeeId() {
+        return this.employeeIdValue.inputValue();
+    }
+
+    async searchEmployeeById(employeeId: string) {
+        await this.pimMenu.click();
+        await this.employeeListMenu.click();
+        await expect(this.page).toHaveURL(/pim\/viewEmployeeList/);
+        const employeeIdInput = this.page.locator('.oxd-input-group').filter({ hasText: 'Employee Id' }).locator('input');
+        await employeeIdInput.fill(employeeId);
+        await this.searchButton.click();
+        await expect(this.page.locator('.oxd-table-row').filter({ hasText: employeeId })).toBeVisible();
+    }
+
+    async editEmployee(employeeId: string) {
+        const employeeRow = this.page.locator('.oxd-table-row').filter({ hasText: employeeId });
+        await employeeRow.locator('button').first().click();
+        await expect(this.page).toHaveURL(/pim\/viewPersonalDetails/);
+    }
+
+    async updateJobDetails(jobTitle: string, employmentStatus: string) {
+        await this.jobTab.click();
+        await expect(this.page.getByText('Job Details', { exact: true })).toBeVisible();
+        await this.selectDropdownValue('Job Title', jobTitle);
+        await this.selectDropdownValue('Employment Status', employmentStatus);
+        await this.page.getByRole('button', { name: 'Save' }).click();
+        await expect(this.getDropdownField('Job Title')).toContainText(jobTitle);
+        await expect(this.getDropdownField('Employment Status')).toContainText(employmentStatus);
+    }
+
+    async updateJobTitle(jobTitle: string) {
+        await this.openJobTab();
+        await this.selectDropdownValue('Job Title', jobTitle);
+        await this.page.getByRole('button', { name: 'Save' }).click();
+        await expect(this.getDropdownField('Job Title')).toContainText(jobTitle);
+    }
+
+    async updateEmploymentStatus(employmentStatus: string) {
+        await this.openJobTab();
+        await this.selectDropdownValue('Employment Status', employmentStatus);
+        await this.page.getByRole('button', { name: 'Save' }).click();
+        await expect(this.getDropdownField('Employment Status')).toContainText(employmentStatus);
+    }
+
+    async expectJobDetails(jobTitle: string, employmentStatus: string) {
+        await this.openJobTab();
+        await expect(this.getDropdownField('Job Title')).toContainText(jobTitle);
+        await expect(this.getDropdownField('Employment Status')).toContainText(employmentStatus);
+    }
+
+    private async openJobTab() {
+        await this.jobTab.click();
+        await expect(this.page.getByText('Job Details', { exact: true })).toBeVisible();
+    }
+
+    private async selectDropdownValue(label: string, value: string) {
+        const field = this.getDropdownField(label);
+        await field.locator('.oxd-select-text').click();
+        await this.page.locator('.oxd-select-option').getByText(value, { exact: true }).click();
+    }
+
+    private getDropdownField(label: string) {
+        return this.page.locator('.oxd-input-group').filter({ hasText: label });
     }
 }
