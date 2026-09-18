@@ -21,3 +21,6 @@ The default base URL is `https://opensource-demo.orangehrmlive.com`.
 
 Test artifacts are stored in `artifacts/videos/`, and the HTML report is stored in
 `artifacts/html-report/`. Both folders are intentionally included for repository submission.
+
+Employee test data is maintained in `data/employee.json`. Each employee record is
+used to generate a separate test, and OrangeHRM generates the Employee ID automatically.

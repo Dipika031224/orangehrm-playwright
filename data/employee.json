@@ -1,0 +1,12 @@
+[
+  {
+    "firstName": "Dipika",
+    "lastName": "Parekh",
+    "profilePicture": "../fixtures/profile-picture.png"
+  },
+  {
+    "firstName": "Neha",
+    "lastName": "Patel",
+    "profilePicture": "../fixtures/profile-picture.png"
+  }
+]
