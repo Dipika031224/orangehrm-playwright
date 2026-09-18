@@ -1,0 +1,8 @@
+node_modules/
+
+# Local Playwright output folders from older/default configurations
+playwright-report/
+test-results/
+
+npm-debug.log*
+.DS_Store
