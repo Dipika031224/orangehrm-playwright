@@ -12,6 +12,9 @@ test.describe.serial('OrangeHRM Employee Management', () => {
             test.setTimeout(90000);
             const loginPage = new LoginPage(page);
             const employeePage = new EmployeePage(page);
+            if (!employee.profilePicture) {
+                throw new Error(`Profile picture is required for ${employee.firstName} ${employee.lastName}.`);
+            }
             const profilePicturePath = path.resolve(__dirname, employee.profilePicture);
 
             await loginPage.navigateToLoginPage();

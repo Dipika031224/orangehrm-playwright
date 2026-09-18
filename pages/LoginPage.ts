@@ -29,4 +29,5 @@ export class LoginPage {
     async isDashboardVisible() {
         return await this.dashboardHeading.isVisible();
     }
+
 }

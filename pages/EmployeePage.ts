@@ -42,7 +42,7 @@ export class EmployeePage {
         lastName: string,
         profilePicturePath: string
     ) {
-        for (let attempt = 0; attempt < 5; attempt++) {
+        for (let attempt = 0; attempt < 2; attempt++) {
             await this.firstNameInput.fill(firstName);
             await this.lastNameInput.fill(lastName);
             await this.profilePictureInput.setInputFiles(profilePicturePath);
@@ -50,16 +50,17 @@ export class EmployeePage {
             await this.saveButton.click();
 
             try {
-                await expect(this.page).toHaveURL(/pim\/viewPersonalDetails/, { timeout: 5000 });
+                await expect(this.page).toHaveURL(/pim\/viewPersonalDetails/, { timeout: 20000 });
                 return employeeId;
             } catch {
-                const addEmployeeUrl = new URL('/web/index.php/pim/addEmployee', this.page.url()).toString();
-                await this.page.goto(addEmployeeUrl);
-                await expect(this.firstNameInput).toBeVisible();
+                if (attempt === 0) {
+                    await this.page.reload();
+                    await expect(this.firstNameInput).toBeVisible();
+                }
             }
         }
 
-        throw new Error('Could not create employee because every generated Employee ID already exists.');
+        throw new Error('Employee save did not navigate to the employee details page. Check the Add Employee validation message.');
     }
 
     async expectEmployeeDetails(firstName: string, lastName: string) {
@@ -83,10 +84,39 @@ export class EmployeePage {
         await expect(this.page.locator('.oxd-table-row').filter({ hasText: employeeId })).toBeVisible();
     }
 
+    async getTopEmployeeId() {
+        await this.pimMenu.click();
+        await this.employeeListMenu.click();
+        await expect(this.page).toHaveURL(/pim\/viewEmployeeList/);
+
+        await expect(this.page.locator('.oxd-table-body')).toBeVisible({ timeout: 15000 });
+        const firstRow = this.page.locator('.oxd-table-body .oxd-table-row').first();
+        await expect(firstRow).toBeVisible({ timeout: 15000 });
+        return (await firstRow.locator('.oxd-table-cell').nth(1).innerText()).trim();
+    }
+
     async editEmployee(employeeId: string) {
         const employeeRow = this.page.locator('.oxd-table-row').filter({ hasText: employeeId });
-        await employeeRow.locator('button').first().click();
+        await employeeRow.locator('.oxd-table-cell-actions button').first().click();
         await expect(this.page).toHaveURL(/pim\/viewPersonalDetails/);
+    }
+
+    async openDeleteConfirmation(employeeId: string) {
+        const employeeRow = this.page.locator('.oxd-table-row').filter({ hasText: employeeId });
+        await employeeRow.locator('.oxd-table-cell-actions button').last().click();
+
+        const deleteMessage = this.page.getByText('The selected record will be permanently deleted.', { exact: false });
+        await expect(deleteMessage).toBeVisible();
+        await expect(this.page.getByRole('button', { name: 'No, Cancel' })).toBeVisible();
+        await expect(this.page.getByRole('button', { name: 'Yes, Delete' })).toBeVisible();
+    }
+
+    async cancelDeleteConfirmation(employeeId: string) {
+        const employeeRow = this.page.locator('.oxd-table-row').filter({ hasText: employeeId });
+        const deleteMessage = this.page.getByText('The selected record will be permanently deleted.', { exact: false });
+        await this.page.getByRole('button', { name: 'No, Cancel' }).click();
+        await expect(deleteMessage).toBeHidden();
+        await expect(employeeRow).toBeVisible();
     }
 
     async updateJobDetails(jobTitle: string, employmentStatus: string) {
